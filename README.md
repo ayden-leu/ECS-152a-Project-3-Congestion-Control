@@ -1,8 +1,6 @@
 # ECS 152A Programming Project 3 (Fall 2025)
 
-## Congestion Control Implementation
-
-This assignment teaches TCP congestion control algorithms through implementation. You will build sender programs that transfer files over an emulated network with variable bandwidth, latency, and packet loss.
+This project is meant to teach TCP congestion control algorithms through implementation. You will build sender programs that transfer files over an emulated network with variable bandwidth, latency, and packet loss.
 
 ## Quick Start
 
