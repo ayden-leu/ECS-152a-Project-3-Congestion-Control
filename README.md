@@ -45,7 +45,6 @@ test_sender.bat my_stop_and_wait.py
 - ✓ Restart receiver to reset state
 - ✓ Copy your code into container
 - ✓ Run your sender
-- ✓ Verify file transfer
 - ✓ Show performance metrics
 
 ## What You'll Implement
@@ -102,10 +101,9 @@ Files you should NOT modify:
 
 ## Getting Help
 
-1. Read [ASSIGNMENT.md](ASSIGNMENT.md) for detailed instructions
 2. Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues
 3. Review Week 7 discussion code: [receiver.py example](https://github.com/shaoormunir/ecs152a-fall-2025/blob/main/week7/code/receiver.py)
-4. Post on course discussion board
+4. Post on course discussion board on Canvas
 5. Attend office hours
 
 ## Additional Resources
