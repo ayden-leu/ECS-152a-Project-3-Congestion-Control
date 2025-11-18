@@ -62,6 +62,21 @@ It launches two receivers (ports 5001/5002) inside the existing simulator, runs 
 
 Tip: Store any extra payloads under `docker/hdd/` so they’re volume-mounted automatically, then invoke the scripts with just the filename.
 
+### Skeleton sender for smoke testing
+
+Need to verify Docker, the simulator, and the receiver are all behaving before you start coding? Use the baked-in skeleton:
+
+```bash
+cd docker
+./test_sender.sh sender_skeleton.py [payload.zip]
+```
+
+It sends two quick demo packets (plus the EOF marker) and prints metrics so you can confirm the end-to-end flow. Feel free to copy `docker/sender_skeleton.py` as a starting point for your own sender; it already demonstrates:
+
+- how to read `PAYLOAD_FILE` / `TEST_FILE` from the environment
+- how to format packets (`SEQ_ID` + payload) and parse ACK/FIN responses
+- how to emit the CSV metrics line that the grading scripts expect
+
 ## What You'll Implement
 
 Four congestion control algorithms:
