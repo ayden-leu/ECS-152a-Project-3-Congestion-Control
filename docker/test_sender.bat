@@ -23,7 +23,7 @@ if not exist "%SENDER_FILE%" (
 set "PAYLOAD_ARG=%~2"
 if "%PAYLOAD_ARG%"=="" set "PAYLOAD_ARG=file.zip"
 
-if not defined NUM_RUNS set "NUM_RUNS=1"
+if not defined NUM_RUNS set "NUM_RUNS=10"
 if not defined RECEIVER_PORT set "RECEIVER_PORT=5001"
 
 call :resolve_payload "%PAYLOAD_ARG%" PAYLOAD_SOURCE
@@ -44,6 +44,7 @@ echo ECS 152A - Testing Your Sender Implementation
 echo ==========================================
 echo [INFO] Sender file : %SENDER_FILE%
 echo [INFO] Payload file: %PAYLOAD_SOURCE% ^(copied as %CONTAINER_PAYLOAD_FILE%^)
+echo [INFO] Number of runs: %NUM_RUNS%
 echo [INFO] Receiver port (inside container): %RECEIVER_PORT%
 
 echo.
@@ -109,38 +110,89 @@ echo [SUCCESS] Payload ready
 
 echo.
 echo ==========================================
-echo Step 3/4: Starting Receiver
+echo Step 3/4: Running Your Sender (multiple runs)
 echo ==========================================
-echo [INFO] Resetting receiver state...
-docker exec %CONTAINER_NAME% pkill -f receiver.py >nul 2>&1
-docker exec %CONTAINER_NAME% rm -f %CONTAINER_OUTPUT_FILE% >nul 2>&1
-docker exec -d %CONTAINER_NAME% env RECEIVER_PORT=%RECEIVER_PORT% TEST_FILE=%CONTAINER_PAYLOAD_FILE% PAYLOAD_FILE=%CONTAINER_PAYLOAD_FILE% RECEIVER_OUTPUT_FILE=%CONTAINER_OUTPUT_FILE% python3 /app/receiver.py >nul 2>&1
-timeout /t 2 /nobreak >nul
-echo [SUCCESS] Receiver is running inside the container
 
-echo.
-echo ==========================================
-echo Step 4/4: Running Your Sender
-echo ==========================================
-echo [INFO] Executing your sender implementation...
-echo.
+set "ALL_METRICS_FILE=%TEMP%\ecs152a_metrics_%RANDOM%.txt"
+if exist "%ALL_METRICS_FILE%" del "%ALL_METRICS_FILE%"
+type nul > "%ALL_METRICS_FILE%"
 
-docker exec %CONTAINER_NAME% env RECEIVER_PORT=%RECEIVER_PORT% TEST_FILE=%CONTAINER_PAYLOAD_FILE% PAYLOAD_FILE=%CONTAINER_PAYLOAD_FILE% python3 /app/sender.py 2>&1
-set "SENDER_EXIT_CODE=%errorlevel%"
-echo.
+for /L %%R in (1,1,%NUM_RUNS%) do (
+    echo.
+    echo ==========================================
+    echo Run %%R/%NUM_RUNS%
+    echo ==========================================
 
-if not "%SENDER_EXIT_CODE%"=="0" (
-    echo [ERROR] Sender exited with error code %SENDER_EXIT_CODE%
-    echo [WARNING] Check the output above for error messages
-    exit /b 1
+    echo [INFO] Starting receiver on port %RECEIVER_PORT%...
+    docker exec %CONTAINER_NAME% pkill -f receiver.py >nul 2>&1
+    docker exec %CONTAINER_NAME% rm -f %CONTAINER_OUTPUT_FILE% >nul 2>&1
+    docker exec -d %CONTAINER_NAME% env RECEIVER_PORT=%RECEIVER_PORT% TEST_FILE=%CONTAINER_PAYLOAD_FILE% PAYLOAD_FILE=%CONTAINER_PAYLOAD_FILE% RECEIVER_OUTPUT_FILE=%CONTAINER_OUTPUT_FILE% python3 /app/receiver.py >nul 2>&1
+    timeout /t 2 /nobreak >nul
+
+    echo [INFO] Executing your sender implementation inside container...
+    echo.
+
+    set "SENDER_OUTPUT_FILE=%TEMP%\ecs152a_sender_output_%RANDOM%.txt"
+    docker exec %CONTAINER_NAME% env RECEIVER_PORT=%RECEIVER_PORT% TEST_FILE=%CONTAINER_PAYLOAD_FILE% PAYLOAD_FILE=%CONTAINER_PAYLOAD_FILE% python3 /app/sender.py 2>&1 > "!SENDER_OUTPUT_FILE!"
+    set "SENDER_EXIT_CODE=!errorlevel!"
+
+    type "!SENDER_OUTPUT_FILE!"
+    echo.
+
+    if not "!SENDER_EXIT_CODE!"=="0" (
+        echo [ERROR] Sender exited with error code !SENDER_EXIT_CODE! on run %%R
+        echo [WARNING] Check the output above for error messages
+        del "!SENDER_OUTPUT_FILE!" 2>nul
+        del "%ALL_METRICS_FILE%" 2>nul
+        exit /b 1
+    )
+
+    REM Extract metrics line (format: number,number,number,number)
+    for /f "tokens=*" %%L in ('findstr /r "^[0-9][0-9]*\.[0-9]*,[0-9][0-9]*\.[0-9]*,[0-9][0-9]*\.[0-9]*,[0-9][0-9]*\.[0-9]*$" "!SENDER_OUTPUT_FILE!" 2^>nul') do (
+        set "METRICS_LINE=%%L"
+    )
+
+    if defined METRICS_LINE (
+        echo !METRICS_LINE!>> "%ALL_METRICS_FILE%"
+        set "METRICS_LINE="
+    ) else (
+        echo [WARNING] Could not parse metrics on run %%R. Skipping this run in averages.
+    )
+
+    del "!SENDER_OUTPUT_FILE!" 2>nul
+    timeout /t 1 /nobreak >nul
 )
 
-echo ==========================================
-echo Performance Metrics
-echo ==========================================
-echo [INFO] Check the output above for metrics (CSV format):
-echo   throughput,delay,jitter,score
 echo.
+echo ==========================================
+echo Step 4/4: Performance Metrics (Averaged)
+echo ==========================================
+
+REM Check if we have any metrics
+for %%A in ("%ALL_METRICS_FILE%") do set "FILESIZE=%%~zA"
+if "%FILESIZE%"=="0" (
+    echo [WARNING] No valid metrics were collected. Make sure your sender prints: throughput,delay,jitter,score
+    del "%ALL_METRICS_FILE%" 2>nul
+    exit /b 0
+)
+
+REM Use Python to calculate averages
+for /f "tokens=1,2,3,4 delims=," %%A in ('python3 -c "import sys; lines = open(sys.argv[1]).read().strip().splitlines(); ths, delays, jits, scores = zip(*[map(float, l.split(',')) for l in lines]); print(f'{sum(ths)/len(ths):.3f},{sum(delays)/len(delays):.6f},{sum(jits)/len(jits):.6f},{sum(scores)/len(scores):.3f}')" "%ALL_METRICS_FILE%"') do (
+    set "THROUGHPUT=%%A"
+    set "AVG_DELAY=%%B"
+    set "AVG_JITTER=%%C"
+    set "SCORE=%%D"
+)
+
+echo Results (averaged over %NUM_RUNS% runs):
+echo   Throughput:  %THROUGHPUT% bytes/sec
+echo   Avg Delay:   %AVG_DELAY% sec
+echo   Avg Jitter:  %AVG_JITTER% sec
+echo   Score:       %SCORE%
+echo.
+
+del "%ALL_METRICS_FILE%" 2>nul
+
 echo [SUCCESS] Test completed successfully!
 echo.
 
