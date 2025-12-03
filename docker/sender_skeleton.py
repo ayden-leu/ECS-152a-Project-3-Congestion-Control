@@ -36,6 +36,44 @@ HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
 
 
+def verify_transfer() -> bool:
+    """Verify the received file matches the original."""
+    # Get original file path
+    original_file = (
+        os.environ.get("TEST_FILE") or os.environ.get("PAYLOAD_FILE") or "/hdd/file.zip"
+    )
+
+    basename = os.path.basename(original_file)
+    if "." in basename:
+        name, ext = basename.rsplit(".", 1)
+        received_basename = f"{name}_received.{ext}"
+    else:
+        received_basename = f"{basename}_received"
+
+    received_file = f"/hdd/{received_basename}"
+
+    if not os.path.exists(received_file):
+        print(f"✗ Received file not found: {received_file}")
+        return False
+
+    original_size = os.path.getsize(original_file)
+    received_size = os.path.getsize(received_file)
+
+    if original_size != received_size:
+        print(
+            f"✗ Size mismatch: original={original_size:,}, received={received_size:,}"
+        )
+        return False
+
+    with open(original_file, "rb") as f1, open(received_file, "rb") as f2:
+        if f1.read() == f2.read():
+            print(f"✓ Transfer verified! {original_size:,} bytes sent successfully.")
+            return True
+        else:
+            print("✗ Content mismatch")
+            return False
+
+
 def load_payload_chunks() -> List[bytes]:
     """
     Reads the selected payload file (or falls back to file.zip) and returns
@@ -172,6 +210,7 @@ def main() -> None:
                 sock.sendto(fin_ack, addr)
                 duration = max(time.time() - start, 1e-6)
                 print_metrics(total_bytes, duration)
+                verify_transfer()
                 return
 
 
