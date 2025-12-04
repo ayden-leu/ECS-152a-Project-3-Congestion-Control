@@ -305,16 +305,16 @@ def main() -> None:
 								congestionWindow += int(numPacketsACKed / congestionWindow)
 				
 			except socket.timeout:
-					# slow start due to timeout
-					# inFastRecovery = False
-					slowStartThreshold = max(int(congestionWindow / 2), 1)
-					congestionWindow = INITIAL_CONGESTION_WINDOW
-					numDuplicateACKs = 0
-					
-					# retransmit packets starting from the current base
-					nextUnACKedPacketToSend = oldestUnACKedPacketNum
+				# slow start due to timeout
+				# inFastRecovery = False
+				slowStartThreshold = max(int(congestionWindow / 2), 1)
+				congestionWindow = INITIAL_CONGESTION_WINDOW
+				numDuplicateACKs = 0
+				
+				# retransmit packets starting from the current base
+				nextUnACKedPacketToSend = oldestUnACKedPacketNum
 
-					weShouldDoVegas = False
+				weShouldDoVegas = False
 
 		# Wait for final FIN after EOF packet
 		while True:
