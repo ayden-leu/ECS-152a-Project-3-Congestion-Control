@@ -16,8 +16,7 @@ HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
 
 
-## Stop-and-wait:  Send a packet, wait for an ACK, send another packet, repeat
-
+## Stop-and-wait:  Send a packet, wait for an ACK, send another packet, repea
 
 def splitPayloadIntoChunks() -> List[bytes]:
 	candidates = [
@@ -113,10 +112,10 @@ def main() -> None:
 	chunksToSend.append((sequence, b""))
 	totalBytes = sum(len(chunk) for chunk in payloadChunks)
 
-	print(f"Connecting to receiver at {HOST}:{PORT}")
-	print(
-		f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
-	)
+	# print(f"Connecting to receiver at {HOST}:{PORT}")
+	# print(
+	# 	f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
+	# )
 
 	RTTs:List[float] = []
 	totalRetransmissions:int = 0
@@ -128,7 +127,7 @@ def main() -> None:
 
 		for sequenceID, payload in chunksToSend:
 			packet = makePacket(sequenceID, payload)
-			print(f"Sending seq={sequenceID}, bytes={len(payload)}")
+			# print(f"Sending seq={sequenceID}, bytes={len(payload)}")
 
 			retries = 0
 			while True:
@@ -146,15 +145,15 @@ def main() -> None:
 						raise RuntimeError(
 							"Receiver did not respond (max retries exceeded)"
 						)
-					print(
-						f"Timeout waiting for ACK (seq={sequenceID}). Retrying ({retries}/{MAX_TIMEOUTS})..."
-					)
+					# print(
+					# 	f"Timeout waiting for ACK (seq={sequenceID}). Retrying ({retries}/{MAX_TIMEOUTS})..."
+					# )
 					continue
 				except Exception as e:
 					raise RuntimeError(f"got an error: {e}")
 
 				ACKid, message = parseACK(ACKpacket)
-				print(f"Received {message.strip()} for ack_id={ACKid}")
+				# print(f"Received {message.strip()} for ACK ID={ACKid}")
 
 				# end condition
 				if message.startswith("fin"):
@@ -176,12 +175,11 @@ def main() -> None:
 
 					if timeToReceiveACK >= 0:
 						RTTs.append(timeToReceiveACK)
-						print(f"ACK RTT: {timeToReceiveACK}")
+						# print(f"ACK RTT: {timeToReceiveACK}")
 					
 					retries = 0
 					break
 
-				# Else: duplicate/stale ACK, continue waiting
 				else:
 					print("Duplicate/stale ACK, will continue waiting...")
 
@@ -193,8 +191,10 @@ def main() -> None:
 			try:
 				ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
 			except socket.timeout:
+				print("oops! timeout final")
 				retries += 1
 				if retries > MAX_TIMEOUTS:
+					print("raising max retires error")
 					raise RuntimeError(
 						"Receiver did not respond (max retries exceeded at final ACK)"
 					)
@@ -203,6 +203,7 @@ def main() -> None:
 				)
 				continue
 			except Exception as e:
+				print("raising error")
 				raise RuntimeError(f"got an error at the final frontier: {e}")
 
 			ACKid, message = parseACK(ACKpacket)
