@@ -70,16 +70,16 @@ def parseACK(packet: bytes) -> Tuple[int, str]:
 # 		total += entry
 # 	return total
 
-def printMetrics(totalBytes:int, duration:float, avgJitter:float, avgDelay:float, RTTs:List[float]=None) -> None:
+def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 	"""
 	Print transfer metrics in the format expected by test scripts.
 
 	TODO: Students should replace the hardcoded delay/jitter/score values
 	with actual calculated metrics from their implementation.
 	"""
-	throughput = totalBytes / duration
-	score:float = (throughput/2000) + (15/avgJitter) + (35/avgDelay)
-
+	
+	avgDelay:float = 0.0
+	avgJitter:float = 0.0
 	if RTTs:
 		avgDelay = sum(RTTs) / len(RTTs)
 
@@ -87,6 +87,9 @@ def printMetrics(totalBytes:int, duration:float, avgJitter:float, avgDelay:float
 		for i in range(1, len(RTTs)):
 			changesInRTT.append(abs(RTTs[i] - RTTs[i-1]))
 		avgJitter = sum(changesInRTT) / len(changesInRTT)
+	
+	throughput = totalBytes / duration
+	score:float = (throughput/2000) + (15/avgJitter) + (35/avgDelay)
 
 	print("\nTransfer complete!")
 	print(f"duration={duration:.3f}s throughput={throughput:.2f} bytes/sec")
@@ -129,7 +132,6 @@ def main() -> None:
 			retries = 0
 			while True:
 				timePacketSent = time.time()
-
 				try:
 					sock.sendto(packet, address)
 				except Exception as e:
@@ -137,7 +139,6 @@ def main() -> None:
 
 				try:
 					ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
-					timeRecievedACK = time.time()
 				except socket.timeout:
 					retries += 1
 					if retries > MAX_TIMEOUTS:
@@ -163,14 +164,13 @@ def main() -> None:
 					printMetrics(
 						totalBytes=totalBytes,
 						duration=duration,
-						RTTs=RTTs,
-						avgDelay=avgDelay,
-						avgJitter=avgJitter
+						RTTs=RTTs
 					)
 					return
 
 				# ack received
 				if message.startswith("ack") and ACKid >= sequenceID + len(payload):
+					timeRecievedACK = time.time()
 					timeToReceiveACK = timeRecievedACK - timePacketSent
 
 					if timeToReceiveACK >= 0:
