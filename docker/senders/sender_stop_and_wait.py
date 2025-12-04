@@ -211,7 +211,11 @@ def main() -> None:
 				finalACK = makePacket(ACKid, b"FIN/ACK")
 				sock.sendto(finalACK, address)
 				duration = max(time.time() - timeStart, 1e-6)
-				printMetrics(totalBytes, duration)
+				printMetrics(
+					totalBytes=totalBytes,
+					duration=duration,
+					RTTs=RTTs
+				)
 				return
 
 
