@@ -29,8 +29,8 @@ HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
 
 
-# Function below was modified from sender_skeleton.py; Initial function only read up to 2 chunks, modified to read the entire file and return all chunks
-def load_payload_chunks() -> bytes:
+# Function below was modified from sender_skeleton.py; Initial function (load_payload_chunks) only read up to 2 chunks, modified to read the entire file and return all chunks, function renamed to load_data as we will split into chunks in main()
+def load_data() -> bytes:
     """
     Reads the selected payload file (or falls back to file.zip) and returns
     up to two MSS-sized chunks for the demo transfer.
