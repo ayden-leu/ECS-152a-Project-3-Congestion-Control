@@ -9,8 +9,6 @@ from typing import List, Tuple
 PACKET_SIZE:int = 1024
 SEQ_ID_SIZE:int = 4
 MAX_SEGMENT_SIZE:int = PACKET_SIZE - SEQ_ID_SIZE  # accounts for the sequence ID every packet needs
-ACK_TIMEOUT:float = 5.0
-MAX_TIMEOUTS:int = 3
 
 HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
@@ -122,14 +120,12 @@ def main() -> None:
 
 	timeStart = time.time()
 	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-		sock.settimeout(ACK_TIMEOUT)
 		address = (HOST, PORT)
 
 		for sequenceID, payload in chunksToSend:
 			packet = makePacket(sequenceID, payload)
 			print(f"Sending seq={sequenceID}, bytes={len(payload)}")
 
-			retries = 0
 			while True:
 				timePacketSent = time.time()
 				try:
@@ -139,16 +135,6 @@ def main() -> None:
 
 				try:
 					ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
-				except socket.timeout:
-					retries += 1
-					if retries > MAX_TIMEOUTS:
-						raise RuntimeError(
-							"Receiver did not respond (max retries exceeded)"
-						)
-					print(
-						f"Timeout waiting for ACK (seq={sequenceID}). Retrying ({retries}/{MAX_TIMEOUTS})..."
-					)
-					continue
 				except Exception as e:
 					raise RuntimeError(f"got an error: {e}")
 
@@ -177,7 +163,6 @@ def main() -> None:
 						RTTs.append(timeToReceiveACK)
 						print(f"ack_RTT: {timeToReceiveACK}")
 					
-					retries = 0
 					break
 
 				# Else: duplicate/stale ACK, continue waiting

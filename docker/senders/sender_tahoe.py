@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import os
@@ -10,7 +11,6 @@ PACKET_SIZE:int = 1024
 SEQ_ID_SIZE:int = 4
 MAX_SEGMENT_SIZE:int = PACKET_SIZE - SEQ_ID_SIZE  # accounts for the sequence ID every packet needs
 ACK_TIMEOUT:float = 5.0
-MAX_TIMEOUTS:int = 3
 
 DELAY_UNTIL_START:float = 0.5
 INITIAL_CONGESTION_WINDOW:int = 1
@@ -19,9 +19,6 @@ FAST_RETRANSMIT_THRESHOLD:int = 3
 
 HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
-
-
-## Stop-and-wait:  Send a packet, wait for an ACK, send another packet, repeat
 
 
 def splitPayloadIntoChunks() -> List[bytes]:
@@ -93,7 +90,7 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 	throughput = totalBytes / duration if duration > 0 else 0.0
 	score:float = (throughput/2000)
 	if avgJitter > 0:
-		score += (15/avgJitter) 
+		score += (15/avgJitter)
 	if avgDelay > 0:
 		score += (35/avgDelay)
 

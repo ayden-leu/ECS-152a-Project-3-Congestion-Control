@@ -10,7 +10,6 @@ PACKET_SIZE:int = 1024
 SEQ_ID_SIZE:int = 4
 MAX_SEGMENT_SIZE:int = PACKET_SIZE - SEQ_ID_SIZE  # accounts for the sequence ID every packet needs
 ACK_TIMEOUT:float = 5.0
-MAX_TIMEOUTS:int = 3
 
 DELAY_UNTIL_START:float = 0.5
 INITIAL_CONGESTION_WINDOW:int = 1
