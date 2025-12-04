@@ -6,11 +6,11 @@ import sys
 import time
 from typing import List, Tuple
 
-PACKET_SIZE = 1024
-SEQ_ID_SIZE = 4
-MAX_SEGMENT_SIZE = PACKET_SIZE - SEQ_ID_SIZE  # accounts for the sequence ID every packet needs
-ACK_TIMEOUT = 5.0
-MAX_TIMEOUTS = 3
+PACKET_SIZE:int = 1024
+SEQ_ID_SIZE:int = 4
+MAX_SEGMENT_SIZE:int = PACKET_SIZE - SEQ_ID_SIZE  # accounts for the sequence ID every packet needs
+ACK_TIMEOUT:float = 5.0
+MAX_TIMEOUTS:int = 3
 
 HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
@@ -70,7 +70,7 @@ def parseACK(packet: bytes) -> Tuple[int, str]:
 # 		total += entry
 # 	return total
 
-def printMetrics(totalBytes: int, duration: float, RTTs:List[float]=None) -> None:
+def printMetrics(totalBytes:int, duration:float, avgJitter:float, avgDelay:float, RTTs:List[float]=None) -> None:
 	"""
 	Print transfer metrics in the format expected by test scripts.
 
@@ -78,11 +78,7 @@ def printMetrics(totalBytes: int, duration: float, RTTs:List[float]=None) -> Non
 	with actual calculated metrics from their implementation.
 	"""
 	throughput = totalBytes / duration
-
-	# Placeholder values - students should calculate these based on actual measurements
-	avgDelay = 0.0
-	avgJitter = 0.0
-	score = 0.0  # TODO:  figure out how to calculate score
+	score:float = (throughput/2000) + (15/avgJitter) + (35/avgDelay)
 
 	if RTTs:
 		avgDelay = sum(RTTs) / len(RTTs)
@@ -95,7 +91,7 @@ def printMetrics(totalBytes: int, duration: float, RTTs:List[float]=None) -> Non
 	print("\nTransfer complete!")
 	print(f"duration={duration:.3f}s throughput={throughput:.2f} bytes/sec")
 	print(
-		f"avg_delay={avgDelay:.6f}s avg_jitter={avgJitter:.6f}s (TODO: Calculate score)"
+		f"avgDelay={avgDelay:.6f}s avgJitter={avgJitter:.6f}s (TODO: Calculate score)"
 	)
 	print(f"{throughput:.7f},{avgDelay:.7f},{avgJitter:.7f},{score:.7f}")
 
@@ -164,7 +160,13 @@ def main() -> None:
 					finalACK = makePacket(ACKid, b"FIN/ACK")
 					sock.sendto(finalACK, address)
 					duration = max(time.time() - timeStart, 1e-6)
-					printMetrics(totalBytes, duration, RTTs)
+					printMetrics(
+						totalBytes=totalBytes,
+						duration=duration,
+						RTTs=RTTs,
+						avgDelay=avgDelay,
+						avgJitter=avgJitter
+					)
 					return
 
 				# ack received
