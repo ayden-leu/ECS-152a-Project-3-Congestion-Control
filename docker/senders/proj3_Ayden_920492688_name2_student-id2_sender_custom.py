@@ -159,17 +159,17 @@ def main() -> None:
 		weShouldDoVegas:bool = False
 
 		while oldestUnACKedPacketNum < len(chunksToSend):
-			print(f"1: oldestUnACKedPacketNum: {oldestUnACKedPacketNum}")
-			print(f"1: chunksToSend length: {len(chunksToSend)}")
-
+			# print(f"1: oldestUnACKedPacketNum: {oldestUnACKedPacketNum}")
+			# print(f"1: chunksToSend length: {len(chunksToSend)}")
+			windowEnd = oldestUnACKedPacketNum + congestionWindow
 			# send packets that are in the congestion window
 			while nextUnACKedPacketToSend < len(chunksToSend) \
 				and nextUnACKedPacketToSend < oldestUnACKedPacketNum + congestionWindow:
 
-				print(f"2: nextUnACKedPacketToSend: {nextUnACKedPacketToSend}")
-				print(f"2: chunksToSend length: {len(chunksToSend)}")
-				print(f"2: oldestUnACKedPacketNum: {oldestUnACKedPacketNum}")
-				print(f"2: congestionWindow: {congestionWindow}")
+				# print(f"2: nextUnACKedPacketToSend: {nextUnACKedPacketToSend}")
+				# print(f"2: chunksToSend length: {len(chunksToSend)}")
+				# print(f"2: oldestUnACKedPacketNum: {oldestUnACKedPacketNum}")
+				# print(f"2: congestionWindow: {congestionWindow}")
 
 				sequenceID, payload = chunksToSend[nextUnACKedPacketToSend]
 				packet = makePacket(sequenceID, payload)
@@ -182,8 +182,8 @@ def main() -> None:
 					raise RuntimeError(f"failed to send initial packet (seq_id: {sequenceID})")
 				nextUnACKedPacketToSend += 1
 			
-				print("Waiting for packet....")
-				try:
+			print("Waiting for packet....")
+			try:
 					ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
 
 					ACKid, message = parseACK(ACKpacket)
@@ -304,7 +304,7 @@ def main() -> None:
 							elif not weShouldDoVegas:
 								congestionWindow += int(numPacketsACKed / congestionWindow)
 				
-				except socket.timeout:
+			except socket.timeout:
 					# slow start due to timeout
 					# inFastRecovery = False
 					slowStartThreshold = max(int(congestionWindow / 2), 1)
