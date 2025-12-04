@@ -85,8 +85,12 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 			changesInRTT.append(abs(RTTs[i] - RTTs[i-1]))
 		avgJitter = sum(changesInRTT) / len(changesInRTT)
 	
-	throughput = totalBytes / duration
-	score:float = (throughput/2000) + (15/avgJitter) + (35/avgDelay)
+	throughput = totalBytes / duration if duration > 0 else 0.0
+	score:float = (throughput/2000)
+	if avgJitter > 0:
+		score += (15/avgJitter) 
+	if avgDelay > 0:
+		score += (35/avgDelay)
 
 	print("\nMetrics:")
 	print(f"duration={duration:.3f}s throughput={throughput:.2f} bytes/sec")
@@ -175,6 +179,7 @@ def main() -> None:
 						print(f"ack_RTT: {timeToReceiveACK}")
 					
 					retries = 0
+					break
 
 				# Else: duplicate/stale ACK, continue waiting
 				else:
