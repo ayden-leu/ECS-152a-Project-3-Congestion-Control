@@ -94,16 +94,16 @@ def print_metrics(total_bytes: int, start_time: float, delays: list[float]) -> N
     if len(delays) > 1:
         jitter_values = []
         for i in range(1, len(delays)):
-            jitter_values.append(abs(delays[i] - delays[i - 1]))
+            jitter_values.append(abs(delays[i] - delays[i - 1])) # Jitter = absolute difference between consecutive delays
         average_jitter = sum(jitter_values) / len(jitter_values)
     
     # Metric based on the formula provided (Performance Metric = (Throughput / 2000) + (15 / Average Jitter) + (35 / Average Delay))
-    metric = 0.0
-    metric += (throughput / 2000)
+    performance_metric = 0.0
+    performance_metric += (throughput / 2000)
     if average_jitter > 0:
-        metric += (15 / average_jitter)
+        performance_metric += (15 / average_jitter)
     if average_delay > 0:
-        metric += (35 / average_delay)
+        performance_metric += (35 / average_delay)
 
     print("\nTransfer complete!")
     print(f"duration={duration:.3f}s throughput={throughput:.2f} bytes/sec")
@@ -111,7 +111,7 @@ def print_metrics(total_bytes: int, start_time: float, delays: list[float]) -> N
         f"avg_delay={average_delay:.6f}s avg_jitter={average_jitter:.6f}s"
     )
     # Line below prints in format as defined in project instructions (four comma separated values)
-    print(f"{throughput:.7f},{average_delay:.7f},{average_jitter:.7f},{metric:.7f}")
+    print(f"{throughput:.7f},{average_delay:.7f},{average_jitter:.7f},{performance_metric:.7f}")
 
 
 def main():
