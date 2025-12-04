@@ -176,7 +176,7 @@ def main() -> None:
 
 					if timeToReceiveACK >= 0:
 						RTTs.append(timeToReceiveACK)
-						print(f"ack_RTT: {timeToReceiveACK}")
+						print(f"ACK RTT: {timeToReceiveACK}")
 					
 					retries = 0
 					break
@@ -188,6 +188,23 @@ def main() -> None:
 		# Wait for final FIN after EOF packet
 		while True:
 			ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+
+			retries = 0
+			try:
+				ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+			except socket.timeout:
+				retries += 1
+				if retries > MAX_TIMEOUTS:
+					raise RuntimeError(
+						"Receiver did not respond (max retries exceeded at final ACK)"
+					)
+				print(
+					f"Timeout waiting for final ACK. Retrying ({retries}/{MAX_TIMEOUTS})..."
+				)
+				continue
+			except Exception as e:
+				raise RuntimeError(f"got an error at the final frontier: {e}")
+
 			ACKid, message = parseACK(ACKpacket)
 			if message.startswith("fin"):
 				finalACK = makePacket(ACKid, b"FIN/ACK")
@@ -201,5 +218,5 @@ if __name__ == "__main__":
 	try:
 		main()
 	except Exception as exc:
-		print(f"Skeleton sender hit an error: {exc}", file=sys.stderr)
+		print(f"Stop and wait sender hit an error: {exc}", file=sys.stderr)
 		sys.exit(1)
