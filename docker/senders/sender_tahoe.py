@@ -233,7 +233,7 @@ def main() -> None:
 				except socket.timeout:
 					# slow start due to timeout
 					slowStartThreshold = max(int(congestionWindow / 2), 1)
-					congestionWindow = float(INITIAL_CWND)
+					congestionWindow = INITIAL_CONGESTION_WINDOW
 					numDuplicateACKs = 0
 					
 					# retransmit packets starting from the current base
