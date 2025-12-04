@@ -74,7 +74,11 @@ def parse_ack(packet: bytes) -> Tuple[int, str]:
 # Function below is modified from sender_skeleton.py to actually include the metrics printing
 def print_metrics(total_bytes: int, start_time: float, delays: list[float]) -> None:
     """
-    Computes and prints the throughput, average (per-packet) delay, average jitter, and overall metric
+    Computes and prints the:
+    - throughput 
+    - average (per-packet) delay (based on time between sending packet and receiving ACK) 
+    - average jitter (absolute difference btwn consecutive delays)
+    - performance metric (defined by formula in the project, specifically Performance Metric = (Throughput / 2000) + (15 / Average Jitter) + (35 / Average Delay))
     """
     
     duration = time.time() - start_time
