@@ -239,6 +239,17 @@ def main() -> None:
 					# retransmit packets starting from the current base
 					nextUnACKedPacketToSend = oldestUnACKedPacketNum
 
+		# Wait for final FIN after EOF packet
+		while True:
+			ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+			ACKid, message = parseACK(ACKpacket)
+			if message.startswith("fin"):
+				finalACK = makePacket(ACKid, b"FIN/ACK")
+				sock.sendto(finalACK, address)
+				duration = time.time() - timeStart
+				printMetrics(totalBytes, duration, RTTs)
+				return
+
 
 if __name__ == "__main__":
 	try:
