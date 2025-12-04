@@ -110,10 +110,10 @@ def main() -> None:
 	chunksToSend.append((sequence, b""))
 	totalBytes = sum(len(chunk) for chunk in payloadChunks)
 
-	print(f"Connecting to receiver at {HOST}:{PORT}")
-	print(
-		f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
-	)
+	# print(f"Connecting to receiver at {HOST}:{PORT}")
+	# print(
+	# 	f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
+	# )
 
 	RTTs:List[float] = []
 	totalRetransmissions:int = 0
@@ -124,7 +124,7 @@ def main() -> None:
 
 		for sequenceID, payload in chunksToSend:
 			packet = makePacket(sequenceID, payload)
-			print(f"Sending seq={sequenceID}, bytes={len(payload)}")
+			# print(f"Sending seq={sequenceID}, bytes={len(payload)}")
 
 			while True:
 				timePacketSent = time.time()
@@ -139,7 +139,7 @@ def main() -> None:
 					raise RuntimeError(f"got an error: {e}")
 
 				ACKid, message = parseACK(ACKpacket)
-				print(f"Received {message.strip()} for ack_id={ACKid}")
+				# print(f"Received {message.strip()} for ack_id={ACKid}")
 
 				# end condition
 				if message.startswith("fin"):
@@ -161,13 +161,13 @@ def main() -> None:
 
 					if timeToReceiveACK >= 0:
 						RTTs.append(timeToReceiveACK)
-						print(f"ack_RTT: {timeToReceiveACK}")
+						# print(f"ack_RTT: {timeToReceiveACK}")
 					
 					break
 
 				# Else: duplicate/stale ACK, continue waiting
-				else:
-					print("Duplicate/stale ACK, will continue waiting...")
+				# else:
+				# 	print("Duplicate/stale ACK, will continue waiting...")
 
 		# Wait for final FIN after EOF packet
 		while True:
