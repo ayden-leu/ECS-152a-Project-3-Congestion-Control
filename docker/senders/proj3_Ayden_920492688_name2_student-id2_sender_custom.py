@@ -100,7 +100,7 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 	throughput = totalBytes / duration if duration > 0 else 0.0
 	score:float = (throughput/2000)
 	if avgJitter > 0:
-		score += (15/avgJitter) 
+		score += (15/avgJitter)
 	if avgDelay > 0:
 		score += (35/avgDelay)
 
@@ -192,6 +192,7 @@ def main() -> None:
 
 					# end condition
 					if message.startswith("fin"):
+						# print("finale")
 						# Respond with FIN/ACK to let receiver exit cleanly
 						finalACK = makePacket(ACKid, b"FIN/ACK")
 						sock.sendto(finalACK, address)
@@ -205,6 +206,7 @@ def main() -> None:
 
 					# handle duplicate ACKs
 					if ACKid == lastACKid:
+						# print("duplicated time")
 						numDuplicateACKs += 1
 
 						# if inFastRecovery:
@@ -214,6 +216,7 @@ def main() -> None:
 						# do fast retransmit
 						# elif
 						if numDuplicateACKs == FAST_RETRANSMIT_THRESHOLD:
+							# print("fast retransmit threshold")
 							# retransmit packets starting from the current base
 							if oldestUnACKedPacketNum < len(chunksToSend):
 								sequenceID, payload = chunksToSend[oldestUnACKedPacketNum]
@@ -227,6 +230,11 @@ def main() -> None:
 							congestionWindow = INITIAL_CONGESTION_WINDOW
 							weShouldDoVegas = False
 							numDuplicateACKs = 0
+
+						# print(f"3: nextUnACKedPacketToSend: {nextUnACKedPacketToSend}")
+						# print(f"3: chunksToSend length: {len(chunksToSend)}")
+						# print(f"3: oldestUnACKedPacketNum: {oldestUnACKedPacketNum}")
+						# print(f"3: congestionWindow: {congestionWindow}")
 
 					# ack received
 					else:
@@ -252,10 +260,11 @@ def main() -> None:
 									packetRTT = time.time() - packetSendTimestamps[sequenceID]
 									RTTs.append(packetRTT)
 									print(f"packet RTT: {packetRTT}")
+									currentRTT = packetRTT
 
 									# keep track of minimum RTT for Vegas
 									if minimumRTT == None or packetRTT < minimumRTT:
-										minimumRTT  =  packetRTT
+										minimumRTT = packetRTT
 									
 									# keep X most recent RTT samples
 									vegasRTTs.append(packetRTT)
@@ -294,7 +303,7 @@ def main() -> None:
 
 							# congestion avoidance if we should not do Vegas
 							elif not weShouldDoVegas:
-								congestionWindow += numPacketsACKed / congestionWindow
+								congestionWindow += int(numPacketsACKed / congestionWindow)
 				
 				except socket.timeout:
 					# slow start due to timeout
@@ -308,6 +317,16 @@ def main() -> None:
 
 					weShouldDoVegas = False
 
+		# Wait for final FIN after EOF packet
+		while True:
+			ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+			ACKid, message = parseACK(ACKpacket)
+			if message.startswith("fin"):
+				finalACK = makePacket(ACKid, b"FIN/ACK")
+				sock.sendto(finalACK, address)
+				duration = time.time() - timeStart
+				printMetrics(totalBytes, duration, RTTs)
+				return
 
 if __name__ == "__main__":
 	try:

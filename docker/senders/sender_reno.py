@@ -93,7 +93,7 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 	throughput = totalBytes / duration if duration > 0 else 0.0
 	score:float = (throughput/2000)
 	if avgJitter > 0:
-		score += (15/avgJitter) 
+		score += (15/avgJitter)
 	if avgDelay > 0:
 		score += (35/avgDelay)
 
@@ -251,6 +251,16 @@ def main() -> None:
 					# retransmit packets starting from the current base
 					nextUnACKedPacketToSend = oldestUnACKedPacketNum
 
+		# Wait for final FIN after EOF packet
+		while True:
+			ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+			ACKid, message = parseACK(ACKpacket)
+			if message.startswith("fin"):
+				finalACK = makePacket(ACKid, b"FIN/ACK")
+				sock.sendto(finalACK, address)
+				duration = time.time() - timeStart
+				printMetrics(totalBytes, duration, RTTs)
+				return
 
 if __name__ == "__main__":
 	try:
