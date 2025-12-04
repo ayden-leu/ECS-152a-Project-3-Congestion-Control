@@ -103,151 +103,153 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 
 
 def main() -> None:
-	payloadChunks = splitPayloadIntoChunks()
-	chunksToSend: List[Tuple[int, bytes]] = []
+    payloadChunks = splitPayloadIntoChunks()
+    chunksToSend: List[Tuple[int, bytes]] = []
 
-	sequence = 0
-	for chunk in payloadChunks:
-		chunksToSend.append((sequence, chunk))
-		sequence += len(chunk)
+    sequence = 0
+    for chunk in payloadChunks:
+        chunksToSend.append((sequence, chunk))
+        sequence += len(chunk)
 
-	# EOF marker
-	chunksToSend.append((sequence, b""))
-	totalBytes = sum(len(chunk) for chunk in payloadChunks)
+    # EOF marker
+    chunksToSend.append((sequence, b""))
+    totalBytes = sum(len(chunk) for chunk in payloadChunks)
 
-	# print(f"Connecting to receiver at {HOST}:{PORT}")
-	# print(
-	# 	f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
-	# )
+    # print(f"Connecting to receiver at {HOST}:{PORT}")
+    # print(
+    #   f"Sending {totalBytes} bytes across {len(payloadChunks)} packets (+EOF)."
+    # )
 
-	RTTs:List[float] = []
-	totalRetransmissions:int = 0
+    RTTs: List[float] = []
+    # totalRetransmissions:int = 0
 
-	with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-		sock.settimeout(ACK_TIMEOUT)
-		address = (HOST, PORT)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(ACK_TIMEOUT)
+        address = (HOST, PORT)
 
-		# extra precaution just in case receiver isnt up in time
-		time.sleep(DELAY_UNTIL_START)
-		timeStart = time.time()
+        # extra precaution just in case receiver isnt up in time
+        time.sleep(DELAY_UNTIL_START)
+        timeStart = time.time()
 
-		# TCP Tahoe attributes
-		oldestUnACKedPacketNum:int = 0
-		nextUnACKedPacketToSend:int = 0
-		congestionWindow:int = INITIAL_CONGESTION_WINDOW
-		slowStartThreshold:int = INITIAL_SLOW_START_THRESHOLD
-		numDuplicateACKs:int = 0
-		lastACKid:int = -1
+        # TCP Tahoe attributes
+        oldestUnACKedPacketNum: int = 0
+        nextUnACKedPacketToSend: int = 0
+        congestionWindow: float = float(INITIAL_CONGESTION_WINDOW)
+        slowStartThreshold: int = INITIAL_SLOW_START_THRESHOLD
+        numDuplicateACKs: int = 0
+        lastACKid: int = -1
 
-		# we can send multiple packets now, so we gotta store them somewhere
-		packetSendTimestamps = {}
+        # we can send multiple packets now, so we gotta store them somewhere
+        packetSendTimestamps: dict[int, float] = {}
 
-		while oldestUnACKedPacketNum < len(chunksToSend):
-			# send packets that are in the congestion window
-			while nextUnACKedPacketToSend < len(chunksToSend) \
-				and nextUnACKedPacketToSend < oldestUnACKedPacketNum + congestionWindow:
+        while oldestUnACKedPacketNum < len(chunksToSend):
+            # send packets that are in the congestion window
+            windowEnd = oldestUnACKedPacketNum + int(congestionWindow)
+            while (
+                nextUnACKedPacketToSend < len(chunksToSend)
+                and nextUnACKedPacketToSend < windowEnd
+            ):
+                sequenceID, payload = chunksToSend[nextUnACKedPacketToSend]
+                packet = makePacket(sequenceID, payload)
+                packetSendTimestamps[sequenceID] = time.time()
 
-				sequenceID, payload = chunksToSend[nextUnACKedPacketToSend]
-				packet = makePacket(sequenceID, payload)
-				packetSendTimestamps[sequenceID] = time.time()
+                # print(f"Sending seq={sequenceID}, bytes={len(payload)}")
+                try:
+                    sock.sendto(packet, address)
+                except Exception as e:
+                    raise RuntimeError(
+                        f"failed to send initial packet (seq_id: {sequenceID})"
+                    )
+                nextUnACKedPacketToSend += 1
+            
+            retries = 0
+            try:
+                ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
 
-				# print(f"Sending seq={sequenceID}, bytes={len(payload)}")
-				try:
-					sock.sendto(packet, address)
-				except Exception as e:
-					raise RuntimeError(f"failed to send initial packet (seq_id: {sequenceID})")
-				nextUnACKedPacketToSend += 1
-			
-				# print("Waiting for packet....")
-				retires = 0
-				try:
-					ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+                ACKid, message = parseACK(ACKpacket)
+                # print(f"Received {message.strip()} for ack_id={ACKid}")
 
-					ACKid, message = parseACK(ACKpacket)
-					# print(f"Received {message.strip()} for ack_id={ACKid}")
+                # end condition
+                if message.startswith("fin"):
+                    # Respond with FIN/ACK to let receiver exit cleanly
+                    finalACK = makePacket(ACKid, b"FIN/ACK")
+                    sock.sendto(finalACK, address)
+                    duration = max(time.time() - timeStart, 1e-6)
+                    printMetrics(
+                        totalBytes=totalBytes,
+                        duration=duration,
+                        RTTs=RTTs,
+                    )
+                    return
 
-					# end condition
-					if message.startswith("fin"):
-						# Respond with FIN/ACK to let receiver exit cleanly
-						finalACK = makePacket(ACKid, b"FIN/ACK")
-						sock.sendto(finalACK, address)
-						duration = max(time.time() - timeStart, 1e-6)
-						printMetrics(
-							totalBytes=totalBytes,
-							duration=duration,
-							RTTs=RTTs
-						)
-						return
+                # handle duplicate ACKs
+                if ACKid == lastACKid:
+                    numDuplicateACKs += 1
 
-					# handle duplicate ACKs
-					if ACKid == lastACKid:
-						numDuplicateACKs += 1
+                    # do fast retransmit
+                    if numDuplicateACKs == FAST_RETRANSMIT_THRESHOLD:
+                        # retransmit packets starting from the current base
+                        if oldestUnACKedPacketNum < len(chunksToSend):
+                            sequenceID, payload = chunksToSend[oldestUnACKedPacketNum]
+                            packet = makePacket(sequenceID, payload)
+                            sock.sendto(packet, address)
 
-						# do fast retransmit
-						if numDuplicateACKs == FAST_RETRANSMIT_THRESHOLD:
-							# retransmit packets starting from the current base
-							if oldestUnACKedPacketNum < len(chunksToSend):
-								sequenceID, payload  = chunksToSend[oldestUnACKedPacketNum]
-								packet = makePacket(sequenceID, payload)
-								sock.sendto(packet, address)
-							
-							# avoid congestion
-							slowStartThreshold = max(int(congestionWindow / 2), 1)
-							congestionWindow = slowStartThreshold
-							numDuplicateACKs = 0
+                        # avoid congestion
+                        slowStartThreshold = max(int(congestionWindow / 2), 1)
+                        congestionWindow = float(slowStartThreshold)
+                        numDuplicateACKs = 0
+                # ack received
+                else:
+                    numDuplicateACKs = 0
+                    lastACKid = ACKid
 
-					# ack received
-					else:
-						numDuplicateACKs = 0
-						lastACKid = ACKid
+                    # slide window forward
+                    oldBase = oldestUnACKedPacketNum
+                    while oldestUnACKedPacketNum < len(chunksToSend):
+                        sequenceID, payload = chunksToSend[oldestUnACKedPacketNum]
+                        nextExpectedACKid = sequenceID + len(payload)
 
-						# slide window forward
-						oldBase = oldestUnACKedPacketNum
-						while oldestUnACKedPacketNum < len(chunksToSend):
-							sequenceID, payload = chunksToSend[oldestUnACKedPacketNum]
-							nextExpectedACKid = sequenceID + len(payload)
+                        if ACKid >= nextExpectedACKid:
+                            # packets successfully sent
+                            if sequenceID in packetSendTimestamps:
+                                packetRTT = time.time() - packetSendTimestamps[
+                                    sequenceID
+                                ]
+                                RTTs.append(packetRTT)
+                                # print(f"packet RTT: {packetRTT}")
+                            oldestUnACKedPacketNum += 1
+                        else:
+                            break
 
-							if ACKid >= nextExpectedACKid:
-								# packets successfully sent
-								if sequenceID in packetSendTimestamps:
-									packetRTT = time.time() - packetSendTimestamps[sequenceID]
-									RTTs.append(packetRTT)
-									# print(f"packet RTT: {packetRTT}")
-								oldestUnACKedPacketNum += 1
-							else:
-								break
-						
-						# update congestion window
-						numPacketsACKed = oldestUnACKedPacketNum - oldBase
-						if numPacketsACKed > 0:
-							# slow start
-							if congestionWindow < slowStartThreshold:
-								congestionWindow += numPacketsACKed
-							# congestion avoidance
-							else:
-								congestionWindow += numPacketsACKed / congestionWindow
-				
-				except socket.timeout:
-					# slow start due to timeout
-					slowStartThreshold = max(int(congestionWindow / 2), 1)
-					congestionWindow = INITIAL_CONGESTION_WINDOW
-					numDuplicateACKs = 0
-					
-					# retransmit packets starting from the current base
-					nextUnACKedPacketToSend = oldestUnACKedPacketNum
+                    # update congestion window
+                    numPacketsACKed = oldestUnACKedPacketNum - oldBase
+                    if numPacketsACKed > 0:
+                        # slow start
+                        if congestionWindow < slowStartThreshold:
+                            congestionWindow += numPacketsACKed
+                        # congestion avoidance
+                        else:
+                            congestionWindow += numPacketsACKed / congestionWindow
 
-		# Wait for final FIN after EOF packet
-		while True:
-			ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
-			ACKid, message = parseACK(ACKpacket)
-			if message.startswith("fin"):
-				finalACK = makePacket(ACKid, b"FIN/ACK")
-				sock.sendto(finalACK, address)
-				duration = time.time() - timeStart
-				printMetrics(totalBytes, duration, RTTs)
-				return
+            except socket.timeout:
+                # slow start due to timeout
+                slowStartThreshold = max(int(congestionWindow / 2), 1)
+                congestionWindow = float(INITIAL_CONGESTION_WINDOW)
+                numDuplicateACKs = 0
 
+                # retransmit packets starting from the current base
+                nextUnACKedPacketToSend = oldestUnACKedPacketNum
 
+        # Wait for final FIN after EOF packet
+        while True:
+            ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
+            ACKid, message = parseACK(ACKpacket)
+            if message.startswith("fin"):
+                finalACK = makePacket(ACKid, b"FIN/ACK")
+                sock.sendto(finalACK, address)
+                duration = time.time() - timeStart
+                printMetrics(totalBytes, duration, RTTs)
+                return
 if __name__ == "__main__":
 	try:
 		main()
