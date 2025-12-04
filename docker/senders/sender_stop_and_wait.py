@@ -91,12 +91,12 @@ def printMetrics(totalBytes:int, duration:float, RTTs:List[float]=None) -> None:
 	throughput = totalBytes / duration
 	score:float = (throughput/2000) + (15/avgJitter) + (35/avgDelay)
 
-	print("\nTransfer complete!")
+	print("\nDemo transfer complete!")
 	print(f"duration={duration:.3f}s throughput={throughput:.2f} bytes/sec")
 	print(
-		f"avgDelay={avgDelay:.6f}s avgJitter={avgJitter:.6f}s (TODO: Calculate score)"
+		f"avg_delay={avgDelay:.6f}s avg_jitter={avgJitter:.6f}s"
 	)
-	print(f"{throughput:.7f},{avgDelay:.7f},{avgJitter:.7f},{score:.7f}")
+	print(f"{throughput:.7f},{avg_delay:.7f},{avg_jitter:.7f},{score:.7f}")
 
 
 def main() -> None:
