@@ -4,7 +4,8 @@ Implementation for Fixed Sliding Window
 Started from sender_skeleton.py, modified to send the entire file with a 100 packet sized window
 """
 
-from __future__ import annotations
+# from __future__ import annotations 
+# Above is from sender_skeleton.py but is not used/needed
 
 import os
 import socket
@@ -16,11 +17,11 @@ PACKET_SIZE = 1024
 SEQ_ID_SIZE = 4
 MSS = PACKET_SIZE - SEQ_ID_SIZE
 
-# Changed the timeout for waiting for ACKs from 1.0 to 2.0 seconds since we have a larger window size
+# Changed the timeout for waiting for ACKs from 1.0 to 2.0 seconds (bc of bigger window size)
 ACK_TIMEOUT = 2.0 
 
-# Changed from 5 to 999999999 (max timeouts not needed, changed to a very large number to allow for sender code to be closer to skeleton) ((made it easier to dev))
-MAX_TIMEOUTS = 999999999 
+# MAX_TIMEOUTS = 5 
+# Above is from sender_skeleton.py but is not used/needed
 
 # Fixed window size of 100 packets, as specified in project instructions
 WINDOW_SIZE = 100 
@@ -29,7 +30,10 @@ HOST = os.environ.get("RECEIVER_HOST", "127.0.0.1")
 PORT = int(os.environ.get("RECEIVER_PORT", "5001"))
 
 
-# Function below was modified from sender_skeleton.py; Initial function (load_payload_chunks) only read up to 2 chunks, modified to read the entire file and return all chunks, function renamed to load_data as we will split into chunks in main()
+# Function below was modified from sender_skeleton.py; 
+# Initial function only read up to 2 chunks, modified to read the entire file
+# Renamed from load_payload_chunks to load_data since we just load the data here
+# Chunks will be created later in main()
 def load_data() -> bytes:
     """
     Reads the selected payload file (or falls back to file.zip) and returns
@@ -112,7 +116,7 @@ def print_metrics(total_bytes: int, start_time: float, delays: list[float]) -> N
 
 def main():
     # Read the whole file at once instead of whatwas in the skeleton which only read 2 chunks
-    data = load_payload_chunks()
+    data = load_data()
 
     transfers: List[Tuple[int, bytes]] = [] 
     seq = 0
@@ -137,7 +141,7 @@ def main():
 
     # For metrics
     send_times = {} # Dictionary traks send times for each packet
-    delays = [] # Dictionary traks delays for each packet
+    delays = [] # List tracks delays for each packet
 
     # indexes for sliding window
     base = 0 # base = index of 1st unacked packet
