@@ -164,7 +164,6 @@ def main() -> None:
 				nextUnACKedPacketToSend += 1
 			
 				# print("Waiting for packet....")
-				retires = 0
 				try:
 					ACKpacket, _ = sock.recvfrom(PACKET_SIZE)
 
